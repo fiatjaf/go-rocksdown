@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/fiatjaf/levelup"
+	examples "github.com/fiatjaf/levelup/examples"
 	"github.com/fiatjaf/rocksdown"
 )
 
@@ -11,5 +11,5 @@ func main() {
 	db := rocksdown.NewDatabase("/tmp/rocksdownexample")
 	defer os.RemoveAll("/tmp/rocksdownexample")
 
-	levelup.Example(db)
+	examples.Example(db)
 }

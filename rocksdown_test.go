@@ -4,12 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/fiatjaf/levelup"
+	tests "github.com/fiatjaf/levelup/tests"
 )
 
 func TestAll(t *testing.T) {
 	db := NewDatabase("/tmp/rocksdowntest")
 	defer os.RemoveAll("/tmp/rocksdowntest")
 
-	levelup.BasicTests(db, t)
+	tests.Test(db, t)
 }
