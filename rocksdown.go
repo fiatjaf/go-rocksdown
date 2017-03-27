@@ -1,10 +1,7 @@
 package rocksdown
 
-// #cgo CFLAGS: -I/home/fiatjaf/comp/rocksdb/include
-// #cgo LDFLAGS: -L/home/fiatjaf/comp/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
-import "C"
 import (
-	"github.com/fiatjaf/go-levelup"
+	"github.com/fiatjaf/levelup"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -38,6 +35,9 @@ func (r RocksDown) Get(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if data.Size() == 0 {
+		return "", levelup.NotFound
+	}
 	return string(data.Data()), nil
 }
 
@@ -62,43 +62,70 @@ func (r RocksDown) Batch(ops []levelup.Operation) error {
 	return r.db.Write(wo, wb)
 }
 
-func (r RocksDown) ReadRange(opts levelup.RangeOpts) levelup.ReadIterator {
+func (r RocksDown) ReadRange(opts *levelup.RangeOpts) levelup.ReadIterator {
+	if opts == nil {
+		opts = &levelup.RangeOpts{}
+	}
+	opts.FillDefaults()
+
 	ro := gorocksdb.NewDefaultReadOptions()
 	defer ro.Destroy()
 	it := r.db.NewIterator(ro)
 
-	if opts.Start != "" {
-		it.Seek([]byte(opts.Start))
+	it.Seek([]byte(opts.Start))
+
+	if opts.Reverse {
+		if opts.End == levelup.DefaultRangeEnd {
+			it.SeekToLast()
+		} else {
+			it.Seek([]byte(opts.End))
+			it.Prev()
+		}
 	}
+
 	if opts.Limit <= 0 {
 		opts.Limit = 9999999
 	}
 
 	return &ReadIterator{
-		iter:    it,
-		opts:    opts,
-		scanned: 0,
+		iter:  it,
+		opts:  opts,
+		count: 1,
 	}
 }
 
 type ReadIterator struct {
-	iter    *gorocksdb.Iterator
-	opts    levelup.RangeOpts
-	scanned int
+	iter  *gorocksdb.Iterator
+	opts  *levelup.RangeOpts
+	count int
 }
 
-func (ri *ReadIterator) Next() bool {
+func (ri *ReadIterator) Valid() bool {
 	if !ri.iter.Valid() {
 		return false
 	}
-
-	ri.iter.Next()
-	ri.scanned++
-	if string(ri.iter.Key().Data()) >= ri.opts.End {
+	if ri.count > ri.opts.Limit {
 		return false
 	}
-
+	if ri.opts.Reverse {
+		if string(ri.iter.Key().Data()) < ri.opts.Start /* inclusive */ {
+			return false
+		}
+	} else {
+		if string(ri.iter.Key().Data()) >= ri.opts.End /* not inclusive */ {
+			return false
+		}
+	}
 	return true
+}
+
+func (ri *ReadIterator) Next() {
+	ri.count++
+	if ri.opts.Reverse {
+		ri.iter.Prev()
+	} else {
+		ri.iter.Next()
+	}
 }
 
 func (ri *ReadIterator) Key() string   { return string(ri.iter.Key().Data()) }
