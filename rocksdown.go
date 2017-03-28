@@ -1,12 +1,15 @@
 package rocksdown
 
 import (
+	"os"
+
 	"github.com/fiatjaf/levelup"
 	"github.com/tecbot/gorocksdb"
 )
 
 type RocksDown struct {
-	db *gorocksdb.DB
+	db   *gorocksdb.DB
+	path string
 }
 
 func NewDatabase(path string) levelup.DB {
@@ -19,7 +22,13 @@ func NewDatabase(path string) levelup.DB {
 	if err != nil {
 		panic(err)
 	}
-	return &RocksDown{db}
+	return &RocksDown{db, path}
+}
+
+func (r RocksDown) Close() { r.db.Close() }
+func (r RocksDown) Erase() {
+	r.Close()
+	os.RemoveAll(r.path)
 }
 
 func (r RocksDown) Put(key, value string) error {

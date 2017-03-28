@@ -1,7 +1,6 @@
 package rocksdown
 
 import (
-	"os"
 	"testing"
 
 	tests "github.com/fiatjaf/levelup/tests"
@@ -9,7 +8,7 @@ import (
 
 func TestAll(t *testing.T) {
 	db := NewDatabase("/tmp/rocksdowntest")
-	defer os.RemoveAll("/tmp/rocksdowntest")
+	defer db.Erase()
 
 	tests.Test(db, t)
 }
