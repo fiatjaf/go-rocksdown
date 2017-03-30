@@ -85,10 +85,8 @@ func (r RocksDown) ReadRange(opts *levelup.RangeOpts) levelup.ReadIterator {
 	it.Seek(opts.Start)
 
 	if opts.Reverse {
-		if bytes.Compare(opts.End, levelup.DefaultRangeEnd) == 0 {
-			it.SeekToLast()
-		} else {
-			it.Seek(opts.End)
+		it.SeekForPrev(opts.End)
+		if bytes.Compare(opts.End, it.Key().Data()) == 0 {
 			it.Prev()
 		}
 	}
