@@ -1,6 +1,7 @@
 package rocksdown
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/fiatjaf/levelup"
@@ -31,29 +32,29 @@ func (r RocksDown) Erase() {
 	os.RemoveAll(r.path)
 }
 
-func (r RocksDown) Put(key, value string) error {
+func (r RocksDown) Put(key, value []byte) error {
 	wo := gorocksdb.NewDefaultWriteOptions()
 	defer wo.Destroy()
-	return r.db.Put(wo, []byte(key), []byte(value))
+	return r.db.Put(wo, key, value)
 }
 
-func (r RocksDown) Get(key string) (string, error) {
+func (r RocksDown) Get(key []byte) ([]byte, error) {
 	ro := gorocksdb.NewDefaultReadOptions()
 	defer ro.Destroy()
-	data, err := r.db.Get(ro, []byte(key))
+	data, err := r.db.Get(ro, key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if data.Size() == 0 {
-		return "", levelup.NotFound
+		return nil, levelup.NotFound
 	}
-	return string(data.Data()), nil
+	return data.Data(), nil
 }
 
-func (r RocksDown) Del(key string) error {
+func (r RocksDown) Del(key []byte) error {
 	wo := gorocksdb.NewDefaultWriteOptions()
 	defer wo.Destroy()
-	return r.db.Delete(wo, []byte(key))
+	return r.db.Delete(wo, key)
 }
 
 func (r RocksDown) Batch(ops []levelup.Operation) error {
@@ -61,11 +62,11 @@ func (r RocksDown) Batch(ops []levelup.Operation) error {
 	defer wo.Destroy()
 	wb := gorocksdb.NewWriteBatch()
 	for _, op := range ops {
-		switch op["type"] {
+		switch op.Type {
 		case "put":
-			wb.Put([]byte(op["key"]), []byte(op["value"]))
+			wb.Put(op.Key, op.Value)
 		case "del":
-			wb.Delete([]byte(op["key"]))
+			wb.Delete(op.Key)
 		}
 	}
 	return r.db.Write(wo, wb)
@@ -81,13 +82,13 @@ func (r RocksDown) ReadRange(opts *levelup.RangeOpts) levelup.ReadIterator {
 	defer ro.Destroy()
 	it := r.db.NewIterator(ro)
 
-	it.Seek([]byte(opts.Start))
+	it.Seek(opts.Start)
 
 	if opts.Reverse {
-		if opts.End == levelup.DefaultRangeEnd {
+		if bytes.Compare(opts.End, levelup.DefaultRangeEnd) == 0 {
 			it.SeekToLast()
 		} else {
-			it.Seek([]byte(opts.End))
+			it.Seek(opts.End)
 			it.Prev()
 		}
 	}
@@ -117,11 +118,11 @@ func (ri *ReadIterator) Valid() bool {
 		return false
 	}
 	if ri.opts.Reverse {
-		if string(ri.iter.Key().Data()) < ri.opts.Start /* inclusive */ {
+		if bytes.Compare(ri.iter.Key().Data(), ri.opts.Start) == -1 /* inclusive */ {
 			return false
 		}
 	} else {
-		if string(ri.iter.Key().Data()) >= ri.opts.End /* not inclusive */ {
+		if bytes.Compare(ri.iter.Key().Data(), ri.opts.End) >= 0 /* not inclusive */ {
 			return false
 		}
 	}
@@ -137,7 +138,7 @@ func (ri *ReadIterator) Next() {
 	}
 }
 
-func (ri *ReadIterator) Key() string   { return string(ri.iter.Key().Data()) }
-func (ri *ReadIterator) Value() string { return string(ri.iter.Value().Data()) }
+func (ri *ReadIterator) Key() []byte   { return ri.iter.Key().Data() }
+func (ri *ReadIterator) Value() []byte { return ri.iter.Value().Data() }
 func (ri *ReadIterator) Error() error  { return ri.iter.Err() }
 func (ri *ReadIterator) Release()      { ri.iter.Close() }
