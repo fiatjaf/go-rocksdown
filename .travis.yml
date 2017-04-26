@@ -26,8 +26,3 @@ install:
 
 script:
   - go test
-
-notifications:
-  email:
-    on_success: change
-    on_failure: always
